@@ -1,0 +1,173 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn import datasets,linear_model,ensemble
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn import tree
+from sklearn.tree import export_graphviz
+import os
+
+def plotModel(xvalue,yvalue):
+    plt.plot(xvalue, yvalue, "o") #plt.plot(predictions, true_values)
+    plt.xlabel("predicted misdemeanor")
+    plt.ylabel("true misdemeanor")
+    plt.plot(yvalue, yvalue, "r-", linewidth=2)
+    plt.grid()
+    plt.show()
+
+# Part 1 read data
+path_2014=r"D:/Study/Module13/project/FinalDatasets/updateddataset2014.csv"
+columns = list(range(1, 9))
+data_2014 = np.loadtxt(path_2014, usecols=columns, skiprows=1, delimiter=",")
+
+
+X=data_2014[:,1:9]
+Y=data_2014[:,0]
+
+
+labels = ["health","living condition","noise","others","property",
+          "social assistance","transportation"]
+
+
+# Part 2 train and validate two models: LR model and RF model
+# model 1: linear regression model
+R2_lm_list=[] # a list to contain 1000 R2 values
+lm_list=[] # a list to contain 10000 linear regression models
+
+for i in range(0,1000):
+    xtrain, xtest, ytrain, ytest = train_test_split(X, Y, test_size=0.2, train_size=0.8) # split the data, according to paraob principle, we use the proportion: 80% against 20%
+    lm = linear_model.LinearRegression( fit_intercept=True, normalize=False,copy_X=True, n_jobs=1 )
+    lm.fit(xtrain, ytrain) # let the lm fit the training data.
+    ypred_lm = lm.predict(xtest) # predict crime values
+    R2_lm=r2_score(ytest, ypred_lm) # calculate R2 score, compare observed and predicted misdemeanour frequency
+    i=i+1
+    R2_lm_list.append(R2_lm) # store the R2 score into the list
+    lm_list.append(lm) # store the linear regression model into the list
+
+# find the highest R2 value
+max_R2_lm=max(R2_lm_list)
+print(max_R2_lm)
+
+
+# find the best linear regression model which correspond to the highest R2 value
+index=R2_lm_list.index(max(R2_lm_list))
+best_lm=lm_list[index]
+
+# execute the validation on this best linear regression model
+ypred_lm = best_lm.predict(xtest)
+
+
+#use plot to visualize and evaluate how good the fitness is
+plt.title("linear regression model")
+plotModel(ypred_lm, ytest)
+
+# sort the 1000 R2 value, these 1000 values will be stored into a csv file.
+# we analyzed the 1000 R2 value by R language in the next step.
+print(sorted(R2_lm_list))
+
+
+# the following code succeeded, but was not used.
+# This code is used for analyzing the distribution of 1000 R2 values.
+# The output is not shown in the report, because we think the analysis on 1stQuantile, 3rdQuantile, variation and median is more useful.
+# The output of this code is shown in the folder "4_OutputOfModelTrainingValidationAndPrediction_inPython"
+
+# plt.suptitle("R2 of linear regression model when running 1000 times", size=15)
+# xlinespace=np.linspace(1,1000,1000)
+# plt.subplot(1, 2, 1)
+# plt.title("before sorted")
+# plt.scatter(xlinespace,R2_lm_list)
+# plt.xlabel("times of running", size=10)
+# plt.ylabel("R2", size=10)
+# plt.grid()
+#
+#
+# plt.subplot(1, 2, 2)
+# plt.title("after sorted")
+# plt.scatter(xlinespace,sorted(R2_lm_list))
+# plt.xlabel("times of running", size=10)
+# plt.ylabel("R2", size=10)
+# plt.grid()
+# plt.show()
+
+
+# model 2: random forest model
+
+# we have m parameters, how many parameters we want to put into the random forest algorithm.: n_estimators
+R2_rf_list=[]
+rf_list=[]
+for i in range(0,100):
+    xtrain, xtest, ytrain, ytest = train_test_split(X, Y, test_size=0.2, train_size=0.8)
+    rf =ensemble.RandomForestRegressor(n_estimators=80, criterion="mse", max_depth=None, min_samples_split=2, min_samples_leaf=1, min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=1, random_state=None, verbose=0, warm_start=False)
+    rf.fit(xtrain, ytrain)
+    ypred_rf = rf.predict(xtest)
+    R2_rf=r2_score(ytest, ypred_rf)
+    i=i+1
+    R2_rf_list.append(R2_rf)
+    rf_list.append(rf)
+
+# find the highest R2 value
+max_R2_lm=max(R2_rf_list)
+print(max_R2_lm)
+
+# find the best rf model which corresponds to the highest R2 value
+index_rf=R2_rf_list.index(max(R2_rf_list))
+best_rf=rf_list[index_rf]
+
+# execute the validation on this best linear regression model
+ypred_rf = best_rf.predict(xtest)
+
+# sort the 1000 R2 value, these 1000 values will be stored into a csv file.
+# we analyzed the 1000 R2 value by R language in the next step.
+print(sorted(R2_rf_list))
+
+
+# evaluate the feature importance of all 7 complaint categories
+zipped_rf = list (zip (labels, best_rf.feature_importances_))
+print(zipped_rf)
+
+
+#use plot to visualize and evaluate how good the fitness is
+plt.title("random forest")
+plotModel(ypred_rf, ytest)
+
+
+# the following code succeeded, but was not used.
+# This code is used for analyzing the distribution of 1000 R2 values.
+# The output is not shown in the report, because we think the analysis on 1stQuantile, 3rdQuantile, variation and median is more useful.
+# The output of this code is shown in the folder "4_OutputOfModelTrainingValidationAndPrediction_inPython"
+
+# plt.suptitle("R2 of random forest model when running 1000 times", size=15)
+# xlinespace = np.linspace(1, 1000, 1000)
+# plt.subplot(1, 2, 1)
+# plt.title("before sorted")
+# plt.scatter(xlinespace, R2_rf_list)
+# plt.xlabel("times of running", size=10)
+# plt.ylabel("R2", size=10)
+# plt.grid()
+#
+# plt.subplot(1, 2, 2)
+# plt.title("after sorted")
+# plt.scatter(xlinespace, sorted(R2_rf_list))
+# plt.xlabel("times of running", size=10)
+# plt.ylabel("R2", size=10)
+# plt.grid()
+# plt.show()
+
+
+# Part 3. prediction
+path_2015=r"D:/Study/Module13/project/FinalDatasets/updateddataset2015.csv"
+columns = list(range(1, 9))
+data_2015 = np.loadtxt(path_2015, usecols=columns, skiprows=1, delimiter=",")
+
+X_2015=data_2015[:,1:9]
+Y_2015=data_2015[:,0]
+
+ypred_lm_2015 = best_lm.predict(X_2015)
+ypred_rf_2015 = best_rf.predict(X_2015)
+
+
+print(ypred_lm_2015)
+print(ypred_rf_2015)
+
+
